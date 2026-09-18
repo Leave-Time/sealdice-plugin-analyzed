@@ -1,0 +1,5 @@
+All Rights Reserved（请自行根据开源协议调整）
+
+本文件是 sealdice-js-ext-template 的许可证占位说明。使用本模板创建插件后，
+请根据实际采用的开源协议或授权方式替换本文件，并同步修改 package.json、
+sealpack/info.toml 和 header.txt 中的许可证声明。

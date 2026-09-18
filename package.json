@@ -1,0 +1,43 @@
+{
+  "name": "sealdice-js-ext-template",
+  "version": "1.0.0",
+  "description": "海豹（SealDice）JS 扩展项目模板，内置 esbuild 构建、lint / 类型检查 / 冒烟测试与 sealpack 发豹包流程",
+  "repository": "https://github.com/sealdice/sealdice-js-ext-template",
+  "license": "All Rights Reserved（请自行根据开源协议调整）",
+  "keywords": [],
+  "scripts": {
+    "build": "cross-env NODE_ENV=production node tools/build.js",
+    "build-dev": "cross-env NODE_ENV=dev node tools/build.js",
+    "lint": "eslint \"src/**/*.ts\"",
+    "typecheck": "tsc --noEmit --strict",
+    "smoke": "node scripts/smoke.js",
+    "check": "npm run lint && npm run typecheck && npm run build && npm run smoke",
+    "package:check": "npm run build && node scripts/prepare-sealpack.js && sealpack validate sealpack && sealpack size sealpack",
+    "pack:sealpack": "node scripts/prepare-sealpack.js && sealpack pack sealpack --out dist/sealdice-js-ext.sealpack",
+    "pack:release": "node scripts/build-release.js"
+  },
+  "engines": {
+    "node": ">=10"
+  },
+  "dependencies": {
+    "lodash-es": "^4.17.21"
+  },
+  "devDependencies": {
+    "@types/lodash-es": "^4.17.12",
+    "@typescript-eslint/eslint-plugin": "^8.66.0",
+    "@typescript-eslint/parser": "^8.66.0",
+    "cross-env": "^7.0.3",
+    "esbuild": "^0.21.4",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^8.10.2",
+    "eslint-plugin-eslint-comments": "^3.2.0",
+    "eslint-plugin-import": "^2.32.0",
+    "fs-extra": "^11.2.0",
+    "sealpack": "^0.1.2",
+    "source-map-support": "^0.5.21",
+    "typescript": "^5.5.4"
+  },
+  "prettier": {
+    "singleQuote": true
+  }
+}
