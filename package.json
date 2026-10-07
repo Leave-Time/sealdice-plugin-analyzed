@@ -1,6 +1,6 @@
 {
   "name": "sealdice-plugin-analyzed",
-  "version": "0.1.0-alpha",
+  "version": "0.2.0",
   "description": "提供检定统计 API、成就登记解锁与图片展示的 SealDice 插件",
   "repository": "https://github.com/Leave-Time/sealdice-plugin-analyzed",
   "license": "MIT",

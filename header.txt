@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         检定统计与成就
 // @author       Leave_Time
-// @version      0.1.0-alpha
+// @version      0.2.0
 // @description  提供检定统计查询 API、成就登记解锁与图片展示
 // @timestamp    1674477074
 // 2023/1/23

@@ -385,6 +385,10 @@ npm run check
 
 开发前阅读 [AGENTS.md](AGENTS.md)，SealDice API 参考：[入门](https://docs.sealdice.com/advanced/js_start.html) · [接口列表](https://docs.sealdice.com/advanced/js_api_list.html) · [示例](https://docs.sealdice.com/advanced/js_example.html)。
 
+## 交流
+
+QQ 交流群：**630192322**。欢迎讨论使用配置、成就接入和问题反馈。
+
 ## 许可证
 
 [MIT](LICENSE) © Leave_Time

@@ -8,7 +8,7 @@ format_version = "1.0.0"
 [package]
 id = "leave-time/analyzed"
 name = "检定统计与成就"
-version = "0.1.0-alpha"
+version = "0.2.0"
 authors = ["Leave_Time"]
 license = "MIT"
 description = "提供检定统计 API、成就登记解锁与图片展示"
