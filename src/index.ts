@@ -1,7 +1,7 @@
 /** COC 检定统计：.analyzed 查看，.analyzed clear 清除。 */
+import { installAchievementFlow } from './achievement-flow';
 
-
-interface CocStats {
+export interface CocStats {
   success: number;
   failure: number;
   normalSuccess: number;
@@ -26,8 +26,8 @@ const VAR_NAMES: Partial<Record<keyof CocStats, string>> = {
 function readStats(ctx: seal.MsgContext): CocStats {
   const stats = emptyStats();
   (Object.keys(VAR_NAMES) as (keyof CocStats)[]).forEach((key) => {
-    const [value] = seal.vars.intGet(ctx, VAR_NAMES[key]!);
-    stats[key] = Number.isFinite(value) && value >= 0 ? value : 0;
+    const [value, exists] = seal.vars.intGet(ctx, VAR_NAMES[key]!);
+    stats[key] = exists && Number.isFinite(value) && value >= 0 ? value : 0;
   });
   stats.success = stats.normalSuccess + stats.hardSuccess + stats.extremeSuccess + stats.criticalSuccess;
   return stats;
@@ -66,6 +66,7 @@ function main(): void {
     seal.ext.register(ext);
     log('扩展已注册，版本：0.1.0-alpha');
   }
+  installAchievementFlow(ext, readStats);
   const cmd = seal.ext.newCmdItemInfo();
   cmd.name = 'analyzed';
   cmd.help = '统计 COC 检定结果。用法：.analyzed 查看统计；.analyzed clear 清除自己的统计。';
