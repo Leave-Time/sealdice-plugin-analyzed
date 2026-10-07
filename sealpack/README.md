@@ -10,4 +10,4 @@
 
 发送 `.analyzed` 查看检定统计；`.achivements list` 查看所有成就，`.achivements info 名称` 查询详情。
 
-其他插件通过 `globalThis.sealStats` 查询检定数据。通过 `globalThis.sealAchievements.register` 登记成就定义，`record` 记录解锁；支持隐藏成就。配置 `成就渲染API` 可用外部服务生成图片回复，接口及调用示例见项目 README。
+其他插件通过 `globalThis.sealStats` 查询检定数据。通过 `globalThis.sealAchievements.register` 登记成就定义，`record` 记录解锁；支持隐藏成就。在扩展配置的“成就”分组将 `成就渲染方式` 设为 `图片`，再填写 `成就渲染API` 地址即可接入图片服务；默认使用文字。接口及调用示例见项目 README。

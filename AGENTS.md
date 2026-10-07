@@ -14,7 +14,7 @@
 
 - `src/stats`：读取自定义文案累加的六个 `$m` 变量，发布只读 `globalThis.sealStats`；成功率是 0 到 1，无检定返回 0。`.analyzed` 查询统计。
 - `src/achievements`：`globalThis.sealAchievements.register` 登记定义，`record` 记录解锁，`list/info` 查询。`.achivements list [页码]` 和 `.achivements info 名称`。
-- `src/rendering`：可选 POST JSON Web API，返回图片 URL；10 秒等待上限及文本回退。请求字段与配置约定见 README。
+- `src/rendering`：`成就渲染方式` 下拉配置为文字/图片，默认文字，作用于列表与详情。只有图片模式使用 `成就渲染API` 地址及可选 `成就渲染Token`；POST JSON 返回图片 URL，10 秒等待上限，缺少地址或失败时文本回退。三个配置项在 WebUI 的“成就”分组。请求字段与配置约定见 README。
 - `src/index.ts`：只负责组装、注册和发布 API。
 
 其他插件负责成就条件判断、权限及解锁通知；本模块不自动监听检定、不自动解锁成就。当前环境无法从 `onCommandReceived` 得到所需结构化检定结果，`docs/js-coc-check-result.md` 不应作为实现依据。

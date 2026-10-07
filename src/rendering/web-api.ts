@@ -8,11 +8,13 @@ export interface RenderPage {
 }
 
 export function installRenderConfig(ext: seal.ExtInfo): void {
-  seal.ext.registerStringConfig(ext, '成就渲染API', '', 'POST JSON，响应 { imageUrl: "https://..." }；留空使用文本');
-  seal.ext.registerStringConfig(ext, '成就渲染Token', '', '可选 Bearer Token，只发送给配置的 API');
+  seal.ext.registerOptionConfig(ext, '成就渲染方式', '文字', ['文字', '图片'], '成就列表与详情的展示方式', '成就');
+  seal.ext.registerStringConfig(ext, '成就渲染API', '', '图片模式使用的 API 地址；POST JSON，响应 { imageUrl: "https://..." }；留空回退文字', '成就');
+  seal.ext.registerStringConfig(ext, '成就渲染Token', '', '可选 Bearer Token，只发送给配置的 API', '成就');
 }
 
 export async function renderImage(ext: seal.ExtInfo, page: RenderPage): Promise<string | undefined> {
+  if (seal.ext.getOptionConfig(ext, '成就渲染方式') !== '图片') return undefined;
   const endpoint = seal.ext.getStringConfig(ext, '成就渲染API').trim();
   if (!endpoint) return undefined;
   if (!/^https?:\/\/[^\s]+$/.test(endpoint)) throw new Error('渲染 API 地址无效');

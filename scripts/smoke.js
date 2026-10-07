@@ -20,6 +20,8 @@ globalThis.seal = {
     unregisterConfig: () => {},
     registerStringConfig: (extension, name, value) => { if (!configs.has(name)) configs.set(name, value); },
     getStringConfig: (extension, name) => configs.get(name),
+    registerOptionConfig: (extension, name, value) => { if (!configs.has(name)) configs.set(name, value); },
+    getOptionConfig: (extension, name) => configs.get(name),
   },
   vars: {
     intGet: (ctx, name) => get(ctx, name, 'number'), strGet: (ctx, name) => get(ctx, name, 'string'),
@@ -75,6 +77,12 @@ async function main() {
 
   configs.set('成就渲染API', 'https://renderer.test/image');
   configs.set('成就渲染Token', 'test-token');
+  let textModeRequests = 0;
+  globalThis.fetch = async () => { textModeRequests++; throw new Error('文字模式不应调用 API'); };
+  await query('list');
+  assert.match(replies.pop(), /隐藏成就/, '配置 API 后文字模式仍使用文本');
+  assert.equal(textModeRequests, 0, '文字模式不能发起渲染请求');
+  configs.set('成就渲染方式', '图片');
   globalThis.fetch = async (url, options) => {
     assert.equal(url, 'https://renderer.test/image');
     assert.equal(options.headers.Authorization, 'Bearer test-token');
@@ -91,6 +99,8 @@ async function main() {
   await query('list');
   assert.match(replies.pop(), /隐藏成就/);
   configs.set('成就渲染API', '');
+  await query('list');
+  assert.match(replies.pop(), /隐藏成就/, '图片模式缺少地址应回退为文字');
   hook.record(ctx, hidden);
   assert.equal(hook.info(ctx, hidden.name).unlocked, true);
   for (let i = 0; i < 10; i++) hook.register({ ...input, id: `item-${i}`, name: `成就${i}` });
