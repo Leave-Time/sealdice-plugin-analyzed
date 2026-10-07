@@ -1,4 +1,4 @@
-# 成就统计
+# 检定统计与成就
 
 基于 [sealdice-js-ext-template](https://github.com/sealdice/sealdice-js-ext-template) 的海豹 JS 扩展。
 
@@ -8,6 +8,6 @@
 
 ## 使用
 
-发送 `.achivements` 查看自己的成就统计，使用 `.achivements 2` 翻页。
+发送 `.analyzed` 查看检定统计；`.achivements list` 查看所有成就，`.achivements info 名称` 查询详情。
 
-其他插件自行判断成就条件，通过 `globalThis.sealAchievements.record(ctx, { source, id, name, description })` 登记完成的成就。本模块负责存储与去重，通知由调用方处理。
+其他插件通过 `globalThis.sealStats` 查询检定数据。通过 `globalThis.sealAchievements.register` 登记成就定义，`record` 记录解锁；支持隐藏成就。配置 `成就渲染API` 可用外部服务生成图片回复，接口及调用示例见项目 README。

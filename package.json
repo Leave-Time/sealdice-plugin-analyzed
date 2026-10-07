@@ -1,7 +1,7 @@
 {
   "name": "sealdice-plugin-analyzed",
   "version": "0.1.0-alpha",
-  "description": "提供成就登记 hook 与玩家成就统计查询的 SealDice 插件",
+  "description": "提供检定统计 API、成就登记解锁与图片展示的 SealDice 插件",
   "repository": "https://github.com/Leave-Time/sealdice-plugin-analyzed",
   "license": "MIT",
   "keywords": [],

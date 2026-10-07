@@ -1,5 +1,5 @@
-import { validateAchievement } from './achievements';
-import type { AchievementRecord, AchievementStore } from './achievements';
+import { validateAchievement } from './service';
+import type { AchievementRecord, AchievementStore } from './service';
 
 // 保留旧变量名，在同一变量中升级数据版本。
 export const ACHIEVEMENT_STATE_KEY = '$manalyzed_achievement_state_v1';

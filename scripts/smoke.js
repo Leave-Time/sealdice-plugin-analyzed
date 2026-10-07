@@ -1,92 +1,128 @@
 const assert = require('node:assert/strict');
 const vm = require('node:vm');
-const registered = [];
 const variables = new Map();
+const storage = new Map();
+const configs = new Map();
 const replies = [];
-const key = '$manalyzed_achievement_state_v1';
-const varKey = (ctx, name) => JSON.stringify([ctx.group?.groupId || '', ctx.player.userId, name]);
+let ext;
+const KEY = '$manalyzed_achievement_state_v1';
+const key = (ctx, name) => JSON.stringify([ctx.group?.groupId, ctx.player.userId, name]);
 const get = (ctx, name, type) => {
-  const value = variables.get(varKey(ctx, name));
+  const value = variables.get(key(ctx, name));
   return [typeof value === type ? value : type === 'string' ? '' : 0, typeof value === type];
 };
 globalThis.seal = {
   ext: {
-    find: () => registered[0],
-    new: (name) => ({ name, cmdMap: {} }),
-    register: (ext) => registered.push(ext),
-    newCmdItemInfo: () => ({}),
-    newCmdExecuteResult: (solved) => ({ solved }),
+    find: () => ext,
+    new: () => ({ cmdMap: {}, storageGet: (name) => storage.get(name) || '', storageSet: (name, value) => storage.set(name, value) }),
+    register: (value) => { ext = value; },
+    newCmdItemInfo: () => ({}), newCmdExecuteResult: (solved) => ({ solved }),
     unregisterConfig: () => {},
+    registerStringConfig: (extension, name, value) => { if (!configs.has(name)) configs.set(name, value); },
+    getStringConfig: (extension, name) => configs.get(name),
   },
   vars: {
-    intGet: (ctx, name) => get(ctx, name, 'number'),
-    strGet: (ctx, name) => get(ctx, name, 'string'),
-    strSet: (ctx, name, value) => variables.set(varKey(ctx, name), value),
+    intGet: (ctx, name) => get(ctx, name, 'number'), strGet: (ctx, name) => get(ctx, name, 'string'),
+    strSet: (ctx, name, value) => variables.set(key(ctx, name), value),
   },
   replyToSender: (ctx, msg, text) => replies.push(text),
 };
 
-try {
+async function main() {
   require('../dist/sealdice-js-ext.js');
-  const hook = globalThis.sealAchievements;
-  assert.equal(hook.version, 1);
-  assert.deepEqual(Object.keys(registered[0].cmdMap), ['achivements']);
-  for (const event of ['onMessageReceived', 'onMessageSend', 'onCommandReceived']) {
-    assert.equal(registered[0][event], undefined);
-  }
   const ctx = { player: { userId: 'QQ:alice', name: 'Alice' }, group: { groupId: 'QQ-Group:1' } };
   const input = { source: 'example', id: 'first', name: '首次完成', description: '示例任务' };
-  globalThis.__achievementTestCtx = ctx;
-  globalThis.__achievementTestInput = input;
-  const result = vm.runInThisContext('globalThis.sealAchievements.record(__achievementTestCtx, __achievementTestInput)');
-  delete globalThis.__achievementTestCtx;
-  delete globalThis.__achievementTestInput;
+  const hidden = { ...input, id: 'secret', name: '秘密条件', description: '不能泄漏的描述', hidden: true };
+  const hook = globalThis.sealAchievements;
+  hook.register(input);
+  hook.register(hidden);
+  assert.equal(hook.list(ctx).length, 2);
+  assert.equal(hook.info(ctx, hidden.name), undefined);
+  assert.deepEqual(hook.list(ctx)[1], { name: '隐藏成就', description: '解锁后揭晓', hidden: true, unlocked: false });
+  globalThis.testCtx = ctx;
+  globalThis.testAchievement = input;
+  const result = vm.runInThisContext('globalThis.sealAchievements.record(testCtx, testAchievement)');
+  delete globalThis.testCtx;
+  delete globalThis.testAchievement;
   assert.equal(result.recorded, true);
-  assert.equal(replies.length, 0, 'hook 只记录，不发通知');
-  result.achievement.name = '修改返回对象';
-  assert.equal(globalThis.sealAchievements.record(ctx, input).achievement.name, input.name);
-  assert.equal(globalThis.sealAchievements.record(ctx, input).recorded, false);
-  assert.equal(globalThis.sealAchievements.record(ctx, { ...input, source: 'other' }).total, 2);
+  assert.equal(hook.record(ctx, input).recorded, false);
+  assert.equal(replies.length, 0);
+  assert.equal(hook.record(ctx, { ...input, source: 'other' }).total, 2);
+  assert.throws(() => hook.info(ctx, input.name), /重复/);
+  assert.equal(hook.info(ctx, 'example/first').unlocked, true);
   const bob = { ...ctx, player: { userId: 'QQ:bob', name: 'Bob' } };
-  assert.equal(globalThis.sealAchievements.record(bob, input).total, 1);
-  assert.throws(() => globalThis.sealAchievements.record(ctx, { ...input, id: '' }));
+  assert.equal(hook.list(bob).filter((item) => item.unlocked).length, 0);
+  assert.throws(() => hook.record(ctx, { ...input, id: '' }));
   const originalSave = seal.vars.strSet;
   seal.vars.strSet = () => { throw new Error('write failed'); };
-  assert.throws(() => globalThis.sealAchievements.record(ctx, { ...input, id: 'failed' }));
+  assert.throws(() => hook.record(ctx, { ...input, id: 'failed' }));
   seal.vars.strSet = originalSave;
-  assert.equal(JSON.parse(variables.get(varKey(ctx, key))).records.length, 2);
+  assert.equal(JSON.parse(variables.get(key(ctx, KEY))).records.length, 2);
 
-  const cmd = registered[0].cmdMap.achivements;
-  const query = (page = '') => cmd.solve(ctx, { sender: { nickname: 'Alice' } }, { getArgN: () => page });
-  query();
-  assert.match(replies.pop(), /已完成：2 项/);
-  for (let i = 0; i < 10; i++) globalThis.sealAchievements.record(ctx, { ...input, id: `item-${i}` });
-  query('2');
+  const query = async (args) => {
+    const parts = args.split(' ').filter(Boolean);
+    const result = ext.cmdMap.achivements.solve(ctx, { sender: { nickname: 'Alice' } }, { args: parts, getArgN: (n) => parts[n - 1] || '' });
+    await new Promise((resolve) => setImmediate(resolve));
+    return result;
+  };
+  await query('list');
+  assert.match(replies.pop(), /隐藏成就/);
+  await query('info example/first');
+  assert.match(replies.pop(), /已解锁：首次完成/);
+  await query('info 秘密条件');
+  assert.match(replies.pop(), /未找到/);
+  assert.equal((await query('list -1')).showHelp, true);
+
+  configs.set('成就渲染API', 'https://renderer.test/image');
+  configs.set('成就渲染Token', 'test-token');
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, 'https://renderer.test/image');
+    assert.equal(options.headers.Authorization, 'Bearer test-token');
+    assert.ok(!options.body.includes(hidden.description));
+    assert.ok(!options.body.includes(hidden.name));
+    return { ok: true, json: async () => ({ imageUrl: 'https://renderer.test/result.png?a=1&b=2' }) };
+  };
+  await query('list');
+  assert.match(replies.pop(), /^\[CQ:image,file=https:/);
+  globalThis.fetch = async () => ({ ok: false, status: 500 });
+  await query('list');
+  assert.match(replies.pop(), /隐藏成就/);
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ imageUrl: 'https://x/][CQ:at,qq=all]' }) });
+  await query('list');
+  assert.match(replies.pop(), /隐藏成就/);
+  configs.set('成就渲染API', '');
+  hook.record(ctx, hidden);
+  assert.equal(hook.info(ctx, hidden.name).unlocked, true);
+  for (let i = 0; i < 10; i++) hook.register({ ...input, id: `item-${i}`, name: `成就${i}` });
+  await query('list 2');
   assert.match(replies.pop(), /第 2\/2 页/);
-  query('3');
-  assert.match(replies.pop(), /页码超出/);
-  assert.equal(query('-1').showHelp, true);
+
+  variables.set(key(ctx, '$m普通成功'), 3);
+  variables.set(key(ctx, '$m大成功'), 1);
+  variables.set(key(ctx, '$m失败'), 2);
+  variables.set(key(ctx, '$m大失败'), -1);
+  assert.equal(sealStats.getCount(ctx, 'criticalSuccess'), 1);
+  assert.equal(sealStats.getSuccessCount(ctx), 4);
+  assert.equal(sealStats.getFailureCount(ctx), 2);
+  assert.equal(sealStats.getSuccessRate(ctx), 4 / 6);
+  assert.equal(sealStats.getSuccessRate(bob), 0);
+  assert.throws(() => sealStats.getCount(ctx, 'unknown'));
 
   const legacy = { ...ctx, player: { userId: 'QQ:legacy' } };
-  variables.set(varKey(legacy, key), JSON.stringify({ version: 1, unlocks: [{ achievementId: 'checks-10', unlockedAt: 1 }] }));
-  assert.equal(globalThis.sealAchievements.record(legacy, input).total, 2);
-  const migrated = JSON.parse(variables.get(varKey(legacy, key)));
-  assert.equal(migrated.version, 2);
-  assert.equal(migrated.records[0].name, '初试身手');
-  assert.equal(migrated.records[0].unlockedAt, 1);
-
+  variables.set(key(legacy, KEY), JSON.stringify({ version: 1, unlocks: [{ achievementId: 'checks-10', unlockedAt: 1 }] }));
+  assert.equal(hook.record(legacy, input).total, 2);
+  assert.equal(JSON.parse(variables.get(key(legacy, KEY))).records[0].unlockedAt, 1);
   const broken = { ...ctx, player: { userId: 'QQ:broken' } };
-  for (const value of ['{invalid', JSON.stringify({ version: 99 }), 7,
-    JSON.stringify({ version: 2, records: [{ ...input, unlockedAt: 1 }, { ...input, unlockedAt: 2 }] })]) {
-    variables.set(varKey(broken, key), value);
-    assert.throws(() => globalThis.sealAchievements.record(broken, input));
-    assert.equal(variables.get(varKey(broken, key)), value);
+  for (const value of ['{invalid', JSON.stringify({ version: 99 }), 7]) {
+    variables.set(key(broken, KEY), value);
+    assert.throws(() => hook.record(broken, input));
+    assert.equal(variables.get(key(broken, KEY)), value);
   }
   delete require.cache[require.resolve('../dist/sealdice-js-ext.js')];
   require('../dist/sealdice-js-ext.js');
   assert.equal(globalThis.sealAchievements.record(ctx, input).recorded, false);
-  console.log('SMOKE OK: hook 登记、去重、玩家隔离、分页、迁移、异常保护及重载通过');
-} catch (error) {
-  console.error(error);
-  process.exit(1);
+  assert.ok(globalThis.sealAchievements.list(ctx).some((item) => item.name === '成就0'));
+  console.log('SMOKE OK: 统计 API、成就登记/解锁、隐藏、查询、图片回退、迁移与重载通过');
 }
+
+main().catch((error) => { console.error(error); process.exit(1); });

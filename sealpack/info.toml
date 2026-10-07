@@ -7,11 +7,11 @@ format_version = "1.0.0"
 # TODO: 发布前把 id / name / authors / description 换成你自己的信息。
 [package]
 id = "leave-time/analyzed"
-name = "成就统计"
+name = "检定统计与成就"
 version = "0.1.0-alpha"
 authors = ["Leave_Time"]
 license = "MIT"
-description = "提供成就登记 hook 与玩家成就统计查询"
+description = "提供检定统计 API、成就登记解锁与图片展示"
 keywords = ["sealdice", "成就", "统计"]
 
 # SealDice 兼容范围。min_version 表示安装此包所需的最低 SealDice 版本。
@@ -23,7 +23,7 @@ min_version = "1.6.0"
 
 # 权限声明。模板示例插件不需要联网，如你的插件需要请改为 true。
 [permissions]
-network = false
+network = true
 file_read = []
 file_write = []
 
