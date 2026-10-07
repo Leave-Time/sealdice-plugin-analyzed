@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         COC检定统计
+// @name         成就统计
 // @author       Leave_Time
 // @version      0.1.0-alpha
-// @description  统计玩家的 COC 检定次数、成功率及成功等级
+// @description  提供成就登记 hook 与玩家成就统计查询
 // @timestamp    1674477074
 // 2023/1/23
 // @license      MIT

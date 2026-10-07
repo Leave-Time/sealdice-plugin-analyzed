@@ -1,101 +1,57 @@
-import type { CocStats } from './index';
+export interface AchievementInput {
+  source: string;
+  id: string;
+  name: string;
+  description: string;
+}
 
-/** 成就的稳定标识。发布后不要修改已有成就的 id。 */
-export type AchievementId = string;
-
-/** 玩家已经解锁的成就记录。 */
-export interface AchievementUnlock {
-  achievementId: AchievementId;
+export interface AchievementRecord extends AchievementInput {
+  /** 登记时间，毫秒时间戳。 */
   unlockedAt: number;
 }
 
-/** 成就系统需要保存的最小状态。具体如何写入 $m 变量由适配器决定。 */
 export interface AchievementState {
-  unlocks: AchievementUnlock[];
+  records: AchievementRecord[];
 }
 
-/** 用于未来接入海豹个人变量或其他存储方式的接口。 */
 export interface AchievementStore {
   load(ctx: seal.MsgContext): AchievementState;
   save(ctx: seal.MsgContext, state: AchievementState): void;
 }
 
-/** 一项成就的声明。progress 返回当前进度，target 是解锁所需值。 */
-export interface AchievementDefinition {
-  id: AchievementId;
-  name: string;
-  description: string;
-  target: number;
-  progress(stats: CocStats): number;
+export interface AchievementHook {
+  version: 1;
+  /** 同步持久化；重复登记返回 recorded: false，验证或存储失败抛异常。 */
+  record(ctx: seal.MsgContext, achievement: AchievementInput): {
+    recorded: boolean;
+    total: number;
+    achievement: AchievementRecord;
+  };
 }
 
-export interface AchievementProgress {
-  definition: AchievementDefinition;
-  current: number;
-  unlocked: boolean;
-}
-
-export interface AchievementEvaluation {
-  progress: AchievementProgress[];
-  newlyUnlocked: AchievementUnlock[];
-  state: AchievementState;
-}
-
-/**
- * 内置成就先集中注册在这里。新增成就只需要添加声明，不需要修改统计读取逻辑。
- * 成就 id 一旦发布应保持不变，名称和描述可以调整。
- */
-export const ACHIEVEMENTS: readonly AchievementDefinition[] = [
-  {
-    id: 'checks-10',
-    name: '初试身手',
-    description: '完成 10 次 COC 检定',
-    target: 10,
-    progress: (stats) => stats.success + stats.failure + stats.fumble,
-  },
-  {
-    id: 'critical-1',
-    name: '命运眷顾',
-    description: '获得 1 次大成功',
-    target: 1,
-    progress: (stats) => stats.criticalSuccess,
-  },
-];
-
-const emptyState = (): AchievementState => ({ unlocks: [] });
-
-/** 纯函数评估器，方便以后接入命令、测试和其他展示方式。 */
-export function evaluateAchievements(
-  definitions: readonly AchievementDefinition[],
-  stats: CocStats,
-  previous: AchievementState,
-  now = Date.now(),
-): AchievementEvaluation {
-  const unlocks = previous.unlocks.slice();
-  const unlockedIds = new Set(unlocks.map((unlock) => unlock.achievementId));
-  const progress = definitions.map((definition) => {
-    const current = Math.max(0, Math.trunc(definition.progress(stats)));
-    return {
-      definition,
-      current,
-      unlocked: unlockedIds.has(definition.id),
-    };
-  });
-  const newlyUnlocked: AchievementUnlock[] = [];
-
-  progress.forEach((item) => {
-    if (!item.unlocked && item.current >= item.definition.target) {
-      const unlock = { achievementId: item.definition.id, unlockedAt: now };
-      unlocks.push(unlock);
-      newlyUnlocked.push(unlock);
-      item.unlocked = true;
+export function validateAchievement(input: AchievementInput): AchievementInput {
+  if (!input || typeof input !== 'object') throw new Error('成就信息必须是对象');
+  for (const field of ['source', 'id', 'name', 'description'] as const) {
+    if (typeof input[field] !== 'string' || (field !== 'description' && !input[field].trim())) {
+      throw new Error(`成就字段 ${field} 无效`);
     }
-  });
-
-  return { progress, newlyUnlocked, state: { unlocks } };
+    if (input[field].length > (field === 'description' ? 2000 : 200)) throw new Error(`成就字段 ${field} 过长`);
+  }
+  return { source: input.source, id: input.id, name: input.name, description: input.description };
 }
 
-/** 默认状态工厂，供存储适配器处理缺失或损坏的数据时使用。 */
-export function createEmptyAchievementState(): AchievementState {
-  return emptyState();
+export function createAchievementHook(store: AchievementStore): AchievementHook {
+  return {
+    version: 1,
+    record(ctx, input) {
+      if (!ctx.player?.userId) throw new Error('成就登记需要玩家上下文');
+      const data = validateAchievement(input);
+      const state = store.load(ctx);
+      const existing = state.records.find((item) => item.source === data.source && item.id === data.id);
+      if (existing) return { recorded: false, total: state.records.length, achievement: { ...existing } };
+      const achievement = { ...data, unlockedAt: Date.now() };
+      store.save(ctx, { records: [...state.records, achievement] });
+      return { recorded: true, total: state.records.length + 1, achievement: { ...achievement } };
+    },
+  };
 }

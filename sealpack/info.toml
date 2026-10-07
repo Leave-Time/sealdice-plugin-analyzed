@@ -7,12 +7,12 @@ format_version = "1.0.0"
 # TODO: 发布前把 id / name / authors / description 换成你自己的信息。
 [package]
 id = "leave-time/analyzed"
-name = "COC检定统计"
+name = "成就统计"
 version = "0.1.0-alpha"
 authors = ["Leave_Time"]
 license = "MIT"
-description = "统计玩家的 COC 检定次数、成功率及成功等级"
-keywords = ["sealdice", "coc", "检定", "统计"]
+description = "提供成就登记 hook 与玩家成就统计查询"
+keywords = ["sealdice", "成就", "统计"]
 
 # SealDice 兼容范围。min_version 表示安装此包所需的最低 SealDice 版本。
 [package.seal]

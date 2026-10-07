@@ -1,204 +1,74 @@
-# COC 检定统计
+# 成就统计
 
-统计海豹（SealDice）中 COC 检定的成功与失败次数，并通过 `.analyzed` 查看当前玩家的统计结果。
-
-![License](https://img.shields.io/badge/license-MIT-green)
-![SealDice](https://img.shields.io/badge/SealDice-JS%20Extension-blue)
-
-## 功能
-
-- 统计普通成功、困难成功、极难成功、大成功、失败和大失败。
-- 根据明细实时计算成功次数、失败次数、总检定次数和成功率。
-- 支持 `.analyzed` 查询统计。
-- 支持 `.analyzed clear` 清除当前玩家的统计。
-- 使用海豹自定义文案插入脚本记录结果，不监听或重复处理 COC 命令。
-- 检定回复后检查成就，保存解锁记录并发送可配置的反馈文本。
-
-## 成就系统
-
-在 `.ra`、`.rc`、`.rah` 或 `.rch` 完成并发送回复后，插件读取更新后的 `$m` 统计，评估成就并保存新解锁记录，再发送反馈。同一次检定解锁多个成就时，反馈合并为一条消息。暗骰反馈发送给发起者的私聊。
-
-目前有两项成就：完成 10 次检定的「初试身手」和获得 1 次大成功的「命运眷顾」。
-
-在海豹 WebUI 的 `analyzed` 扩展配置中设置：
-
-- `成就系统启用`：默认开启，关闭后不评估、不保存、不反馈。
-- `成就解锁反馈`：默认 `{玩家} 解锁成就「{成就名称}」！` 换行后显示 `{成就描述}`。留空时只保存解锁状态。
-
-反馈支持 `{玩家}`、`{成就名称}`、`{成就描述}`、`{成就ID}`、`{检定回复}` 占位符。例如：
-
-```text
-恭喜 {玩家} 获得「{成就名称}」！
-达成条件：{成就描述}
-```
-
-成就接口与流程实现：
-
-- `AchievementDefinition`：声明成就名称、描述、目标和进度计算方式。
-- `AchievementStore`：抽象成就状态的读取与保存，当前使用 `$manalyzed_achievement_state_v1` 字符串个人变量保存版本化 JSON。
-- `evaluateAchievements`：根据现有 `CocStats` 计算进度，并返回本次新解锁的成就。
-
-新增成就时，在 `src/achievements.ts` 的 `ACHIEVEMENTS` 中添加声明，使用稳定且不会重复的 `id`。通用流程在 `src/achievement-flow.ts`，个人变量存储适配器在 `src/achievement-store.ts`。
-
-已解锁成就不会再次反馈，重载插件后仍然保留。`.analyzed clear` 只清空统计，保留成就。已有累计统计会在下一次有效检定后参与评估，记录时间是确认解锁的时间。损坏或未知版本的成就状态会在日志中报错并暂停本次评估，不覆盖原数据。
-
-必须先配置下面的自定义文案：插件仅在捕获发送文本、且本次检定导致统计计数增加时评估。帮助、解析失败、普通聊天和其他命令不触发评估。流程依赖当前海豹版本及平台适配器按“收到消息、发送回复、命令完成”的顺序调用回调，尚需在实际海豹环境中验证。代骰目标与发起者不同的检定暂不参与此流程。
-
-## 原理
-
-插件将统计数据保存为玩家变量：
-
-| 结果 | 变量 |
-| --- | --- |
-| 普通成功 | `$m普通成功` |
-| 困难成功 | `$m困难成功` |
-| 极难成功 | `$m极难成功` |
-| 大成功 | `$m大成功` |
-| 失败 | `$m失败` |
-| 大失败 | `$m大失败` |
-
-查询时，插件直接读取上述变量并计算：
-
-```text
-成功次数 = 普通成功 + 困难成功 + 极难成功 + 大成功
-失败次数 = 失败 + 大失败
-检定次数 = 成功次数 + 失败次数
-成功率   = 成功次数 / 检定次数
-```
-
-插件本身不会监听 `.ra`、`.rc` 等命令，也不会把同一次检定重复计数。
-
-## 安装
-
-### 直接加载脚本
-
-1. 执行构建命令生成 `dist/sealdice-js-ext.js`。
-2. 在海豹 WebUI 的 JS 扩展管理中加载该文件。
-3. 确认扩展 `analyzed` 已启用。
-
-### 安装豹包
-
-使用 `npm run pack:sealpack` 生成 `dist/sealdice-js-ext.sealpack`，然后在海豹扩展管理中导入该豹包。
-
-## 配置自定义文案
-
-安装插件后，进入海豹：
-
-`自定义文案 -> COC -> 判定-常规`
-
-在对应文案中增加插入脚本。下面的示例使用海豹模板语法，请保持变量名和判断条件不变。
-
-### 普通结果
-
-在「判定_大失败」中加入：
-
-```text
-{%if 1 {$m大失败=$m大失败+1}%}
-```
-
-其他普通结果可分别加入对应变量：
-
-```text
-{%if 1 {$m失败=$m失败+1}%}
-{%if 1 {$m普通成功=$m普通成功+1}%}
-{%if 1 {$m困难成功=$m困难成功+1}%}
-{%if 1 {$m极难成功=$m极难成功+1}%}
-{%if 1 {$m大成功=$m大成功+1}%}
-```
-
-### 必须困难判定的失败
-
-在「判定*必须*困难_失败」中加入：
-
-```text
-{%
-if $t附加判定结果=='(大失败)'
-{
-    $m大失败=$m大失败+1
-}
-if $t附加判定结果==''
-{
-    $m失败=$m失败+1
-}
-%}
-```
-
-### 必须困难判定的成功
-
-在「判定*必须*困难_成功」中加入：
-
-```text
-{%
-if $t附加判定结果=='(大成功)'
-{
-    $m大成功=$m大成功+1
-}
-if $t附加判定结果==''
-{
-    $m困难成功=$m困难成功+1
-}
-%}
-```
-
-配置完成后，执行几次 `.ra` 或 `.rc` 检定，再使用 `.analyzed` 检查统计结果。首次使用前可以执行 `.analyzed clear`，确保变量从零开始。
+SealDice 成就记录模块。其他 JS 插件自行判断成就完成条件，然后调用本模块的 hook 登记；本模块负责持久化、去重及统计查询。
 
 ## 使用
 
 ```text
-.analyzed
+.achivements
+.achivements 2
 ```
 
-示例输出：
+显示当前玩家已完成数量和成就列表，每页 10 项，按登记时间倒序排列。命令拼写为 `achivements`。
 
-```text
-Leave_Time 的 COC 检定统计
-检定次数：12
-成功率：66.67%
-成功次数：8（成功 4、困难成功 2、极难成功 1、大成功 1）
-失败次数：4（失败 3、大失败 1）
+保留扩展标识 `analyzed` 以兼容原安装。原 `.analyzed` 统计命令、检定消息监听、内置成就评估和反馈配置已移除。原六项 COC 变量保持原值，本模块不读取或累加它们。
+
+## 对外 Hook
+
+先加载本插件，在其他插件实际需要登记时获取 `globalThis.sealAchievements`，不要在加载时缓存它。共享同一个海豹 JS VM 的插件通过此全局对象调用：
+
+```js
+// 调用方已经确认成就条件完成。
+const hook = globalThis.sealAchievements;
+if (!hook || hook.version !== 1) {
+  console.log('成就统计插件尚未加载');
+} else {
+  try {
+    const result = hook.record(ctx, {
+      source: 'my-plugin',
+      id: 'first-task',
+      name: '初次挑战',
+      description: '完成第一次任务',
+    });
+    if (result.recorded) {
+      // 调用方自行决定是否通知，以及发送到哪里。
+      seal.replyToSender(ctx, msg, '获得成就：' + result.achievement.name);
+    }
+  } catch (error) {
+    console.log('成就登记失败：' + String(error));
+  }
+}
 ```
 
-清除当前玩家的统计：
+`source` 为来源插件的稳定标识，`id` 为该插件内的稳定成就标识，`name` 为展示名称，`description` 为描述（可为空字符串）。前三项最多 200 个字符，描述最多 2000 个字符。
 
-```text
-.analyzed clear
-```
+`record` 是同步接口。成功返回 `{ recorded, total, achievement }`，其中 `total` 为当前玩家的已完成成就数量。相同玩家的相同 `source + id` 只登记一次；重复登记返回 `recorded: false`，保留最初的名称、描述及时间。验证或存储失败会抛出异常，调用方可处理或重试。登记成功不发送消息。
 
-## 构建与检查
+传入的 `ctx` 必须对应实际获得成就的玩家，遵循海豹 `$m` 变量作用域。跨群行为遵循海豹个人变量的实际作用域；hook 不提供远程用户 ID 寻址。调用方负责插件启停、权限检查及成就条件。全局 hook 属于同 VM 的合作接口，不是安全隔离边界。
 
-环境要求：Node.js 18 或更高版本。
+TypeScript 调用方可以引用 `types/achievements.d.ts` 及其引用的类型文件。海豹实际版本中的跨插件全局共享和变量作用域仍需运行验证。
+
+## 存储与迁移
+
+使用 `$manalyzed_achievement_state_v1` 字符串变量保存 `{ version: 2, records: [...] }`。变量名沿用旧版，版本字段升级。旧版 `unlocks` 会在读取时转换，在下一次新增成就保存时写为版本 2；保留原 ID 和登记时间，来源标为 `analyzed`。
+
+损坏 JSON、重复记录、类型不匹配和未知版本会报错，保留原数据。查询失败会提示联系骰主。不提供清空命令。
+
+## 构建
+
+Node.js 18 或以上：
 
 ```bash
 npm install
-npm run build
-```
-
-构建产物位于 `dist/`。提交前建议运行完整检查：
-
-```bash
 npm run check
 ```
 
-该命令会依次执行 ESLint、TypeScript 类型检查、esbuild 构建和冒烟测试。检查豹包格式及生成安装包：
+加载 `dist/sealdice-js-ext.js`，或使用 `npm run pack:sealpack` 生成豹包。`npm run check` 执行 lint、类型检查、构建及 hook 行为测试。
 
-```bash
-npm run package:check
-npm run pack:sealpack
-```
+## 开发
 
-## 项目结构
+- `src/index.ts`：注册命令及共享 hook。
+- `src/achievements.ts`：hook 契约及登记逻辑。
+- `src/achievement-store.ts`：个人变量存储与迁移。
 
-```text
-src/index.ts       插件核心逻辑
-src/achievements.ts 成就定义与评估接口
-src/achievement-flow.ts 检定回复后的成就流程
-src/achievement-store.ts 成就个人变量存储
-header.txt         生成脚本的元数据头
-sealpack/          豹包配置与资源
-scripts/           构建、检查和发布脚本
-dist/              构建产物（默认不提交）
-```
-
-## 许可证
-
-[MIT License](./LICENSE)
+许可证：MIT。

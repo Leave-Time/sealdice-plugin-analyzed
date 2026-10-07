@@ -1,4 +1,4 @@
-# 你的插件名
+# 成就统计
 
 基于 [sealdice-js-ext-template](https://github.com/sealdice/sealdice-js-ext-template) 的海豹 JS 扩展。
 
@@ -8,4 +8,6 @@
 
 ## 使用
 
-安装后在群内发送 `.seal help` 查看指令说明。
+发送 `.achivements` 查看自己的成就统计，使用 `.achivements 2` 翻页。
+
+其他插件自行判断成就条件，通过 `globalThis.sealAchievements.record(ctx, { source, id, name, description })` 登记完成的成就。本模块负责存储与去重，通知由调用方处理。

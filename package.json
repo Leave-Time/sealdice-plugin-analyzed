@@ -1,7 +1,7 @@
 {
   "name": "sealdice-plugin-analyzed",
   "version": "0.1.0-alpha",
-  "description": "统计玩家的 COC 检定次数、成功率及成功等级的 SealDice 插件",
+  "description": "提供成就登记 hook 与玩家成就统计查询的 SealDice 插件",
   "repository": "https://github.com/Leave-Time/sealdice-plugin-analyzed",
   "license": "MIT",
   "keywords": [],
