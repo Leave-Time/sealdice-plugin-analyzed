@@ -8,7 +8,11 @@ export interface RenderPage {
 }
 
 export function installRenderConfig(ext: seal.ExtInfo): void {
+  seal.ext.registerBoolConfig(ext, 'DEBUG', false, '文字展示中显示来源插件与成就 ID；不会揭示未解锁隐藏成就', '成就');
   seal.ext.registerOptionConfig(ext, '成就渲染方式', '文字', ['文字', '图片'], '成就列表与详情的展示方式', '成就');
+  seal.ext.registerOptionConfig(ext, '成就文字发送方式', '单独消息', ['单独消息', '合并转发'], '文字回复的发送方式；合并转发需要 QQ OneBot HTTP API', '成就');
+  seal.ext.registerStringConfig(ext, 'OneBot HTTP API', '', 'OneBot v11 HTTP 服务根地址，例如 http://127.0.0.1:3000；不是图片渲染地址', '成就');
+  seal.ext.registerStringConfig(ext, 'OneBot HTTP Token', '', 'OneBot HTTP 服务的 access_token，使用 Bearer 鉴权', '成就');
   seal.ext.registerStringConfig(ext, '成就渲染API', '', '图片模式使用的 API 地址；POST JSON，响应 { imageUrl: "https://..." }；留空回退文字', '成就');
   seal.ext.registerStringConfig(ext, '成就渲染Token', '', '可选 Bearer Token，只发送给配置的 API', '成就');
 }

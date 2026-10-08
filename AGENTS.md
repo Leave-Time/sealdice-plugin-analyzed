@@ -13,13 +13,15 @@
 ## 模块职责
 
 - `src/stats`：读取自定义文案累加的六个 `$m` 变量，发布只读 `globalThis.sealStats`；成功率是 0 到 1，无检定返回 0。`.analyzed` 查询统计。
-- `src/achievements`：`globalThis.sealAchievements.register` 登记定义，`record` 记录解锁，`list/info` 查询。`.achivements list [页码]` 和 `.achivements info 名称`。
+- `src/achievements`：`globalThis.sealAchievements.register` 登记定义，`record` 记录解锁，`list/info` 查询。`.achievements list [页码]` 和 `.achievements info 名称`。
 - `src/rendering`：`成就渲染方式` 下拉配置为文字/图片，默认文字，作用于列表与详情。只有图片模式使用 `成就渲染API` 地址及可选 `成就渲染Token`；POST JSON 返回图片 URL，10 秒等待上限，缺少地址或失败时文本回退。三个配置项在 WebUI 的“成就”分组。请求字段与配置约定见 README。
 - `src/index.ts`：只负责组装、注册和发布 API。
 
 其他插件负责成就条件判断、权限及解锁通知；本模块不自动监听检定、不自动解锁成就。当前环境无法从 `onCommandReceived` 得到所需结构化检定结果，`docs/js-coc-check-result.md` 不应作为实现依据。
 
 ## 数据与兼容
+
+文字展示默认关闭 `DEBUG`，不显示来源与 ID；开启后也不得揭示隐藏成就。日期使用服务器本地年月日。`src/rendering/text.ts` 负责排版，`onebot.ts` 负责合并转发。`成就文字发送方式` 默认单独消息，可选合并转发；后者使用 `OneBot HTTP API` 根地址和可选 `OneBot HTTP Token`，仅支持 QQ OneBot v11，群聊/私聊分别调用对应转发动作，节点内容必须为 text 消息段。转发失败回退普通消息；超时可能存在已发送而响应不及时的重复风险。配置在“成就”分组。
 
 个人解锁变量 `$manalyzed_achievement_state_v1` 保存版本 2 的 records，兼容旧版 unlocks。目录使用扩展存储 `achievement_catalog_v1`。source + id 稳定且唯一，重复解锁不重复计数。隐藏成就未解锁时，聊天与渲染请求都只能收到占位名称、描述及状态，不能包含来源、ID、真实名称和描述；info 不允许查询未解锁隐藏成就。已解锁后正常展示。
 

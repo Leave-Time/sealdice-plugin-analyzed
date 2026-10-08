@@ -1,3 +1,5 @@
+import { sendForward } from '../rendering/onebot';
+import { formatAchievementText } from '../rendering/text';
 import { renderImage } from '../rendering/web-api';
 import type { RenderPage } from '../rendering/web-api';
 
@@ -7,8 +9,8 @@ const PAGE_SIZE = 10;
 
 export function installAchievementCommand(ext: seal.ExtInfo, hook: AchievementHook): void {
   const cmd = seal.ext.newCmdItemInfo();
-  cmd.name = 'achivements';
-  cmd.help = '.achivements list [页码]：所有成就；.achivements info 名称：成就详情';
+  cmd.name = 'achievements';
+  cmd.help = '.achievements list [页码]：所有成就；.achievements info 名称：成就详情';
   cmd.allowDelegate = false;
   cmd.solve = (ctx, msg, args) => {
     const action = args.getArgN(1).toLowerCase();
@@ -32,15 +34,16 @@ export function installAchievementCommand(ext: seal.ExtInfo, hook: AchievementHo
           achievements: items.slice((number - 1) * PAGE_SIZE, number * PAGE_SIZE) };
       } else { result.showHelp = true; return result; }
 
-      const text = [page.title, `已解锁：${page.unlocked}/${page.total} 项（第 ${page.page}/${page.pages} 页）`,
-        ...page.achievements.map((item) => `${item.unlocked ? '已解锁' : '未解锁'}：${item.name}${item.source ? ` [${item.source}/${item.id}]` : ''}\n${item.description}${item.unlockedAt !== undefined ? `\n解锁时间：${new Date(item.unlockedAt).toISOString()}` : ''}`),
-      ].join('\n');
+      const blocks = formatAchievementText(page, seal.ext.getBoolConfig(ext, 'DEBUG'));
       // solve 必须同步返回命令执行结果，网络请求在独立异步流程中完成。
       void (async () => {
         let image: string | undefined;
         try { image = await renderImage(ext, page); }
         catch (error) { console.log(`[analyzed] 图片渲染失败，使用文本：${String(error)}`); }
-        seal.replyToSender(ctx, msg, image || text);
+        if (image) { seal.replyToSender(ctx, msg, image); return; }
+        try { if (await sendForward(ext, ctx, msg, blocks)) return; }
+        catch (error) { console.log(`[analyzed] 合并转发失败，使用普通消息：${String(error)}`); }
+        seal.replyToSender(ctx, msg, blocks.join('\n\n'));
       })().catch((error: unknown) => console.log(`[analyzed] 成就回复失败：${String(error)}`));
     } catch (error) {
       console.log(`[analyzed] 成就查询失败：${String(error)}`);
@@ -48,5 +51,5 @@ export function installAchievementCommand(ext: seal.ExtInfo, hook: AchievementHo
     }
     return result;
   };
-  ext.cmdMap.achivements = cmd;
+  ext.cmdMap.achievements = cmd;
 }

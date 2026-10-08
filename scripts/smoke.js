@@ -22,6 +22,8 @@ globalThis.seal = {
     getStringConfig: (extension, name) => configs.get(name),
     registerOptionConfig: (extension, name, value) => { if (!configs.has(name)) configs.set(name, value); },
     getOptionConfig: (extension, name) => configs.get(name),
+    registerBoolConfig: (extension, name, value) => { if (!configs.has(name)) configs.set(name, value); },
+    getBoolConfig: (extension, name) => configs.get(name),
   },
   vars: {
     intGet: (ctx, name) => get(ctx, name, 'number'), strGet: (ctx, name) => get(ctx, name, 'string'),
@@ -32,7 +34,7 @@ globalThis.seal = {
 
 async function main() {
   require('../dist/sealdice-js-ext.js');
-  const ctx = { player: { userId: 'QQ:alice', name: 'Alice' }, group: { groupId: 'QQ-Group:1' } };
+  const ctx = { player: { userId: 'QQ:alice', name: 'Alice' }, group: { groupId: 'QQ-Group:1' }, endPoint: { userId: 'QQ:123456', nickname: '成就骰' } };
   const input = { source: 'example', id: 'first', name: '首次完成', description: '示例任务' };
   const hidden = { ...input, id: 'secret', name: '秘密条件', description: '不能泄漏的描述', hidden: true };
   const hook = globalThis.sealAchievements;
@@ -61,16 +63,25 @@ async function main() {
   seal.vars.strSet = originalSave;
   assert.equal(JSON.parse(variables.get(key(ctx, KEY))).records.length, 2);
 
-  const query = async (args) => {
+  const query = async (args, message = {}) => {
     const parts = args.split(' ').filter(Boolean);
-    const result = ext.cmdMap.achivements.solve(ctx, { sender: { nickname: 'Alice' } }, { args: parts, getArgN: (n) => parts[n - 1] || '' });
+    const result = ext.cmdMap.achievements.solve(ctx, { platform: 'QQ', messageType: 'group', groupId: 'QQ-Group:654321', sender: { nickname: 'Alice', userId: 'QQ:111111' }, ...message }, { args: parts, getArgN: (n) => parts[n - 1] || '' });
     await new Promise((resolve) => setImmediate(resolve));
     return result;
   };
   await query('list');
   assert.match(replies.pop(), /隐藏成就/);
   await query('info example/first');
-  assert.match(replies.pop(), /已解锁：首次完成/);
+  const detail = replies.pop();
+  assert.match(detail, /首次完成 \[已解锁\]/);
+  assert.doesNotMatch(detail, /example\/first|ID：|T\d\d:/);
+  assert.match(detail, /解锁日期：\d{4}-\d{2}-\d{2}(?:\n|$)/);
+  configs.set('DEBUG', true);
+  await query('info example/first');
+  assert.match(replies.pop(), /ID：example\/first/);
+  await query('list');
+  assert.doesNotMatch(replies.pop(), /example\/secret|秘密条件|不能泄漏/);
+  configs.set('DEBUG', false);
   await query('info 秘密条件');
   assert.match(replies.pop(), /未找到/);
   assert.equal((await query('list -1')).showHelp, true);
@@ -106,6 +117,35 @@ async function main() {
   for (let i = 0; i < 10; i++) hook.register({ ...input, id: `item-${i}`, name: `成就${i}` });
   await query('list 2');
   assert.match(replies.pop(), /第 2\/2 页/);
+
+  configs.set('成就渲染方式', '文字');
+  configs.set('成就文字发送方式', '合并转发');
+  configs.set('OneBot HTTP API', 'http://127.0.0.1:3000/');
+  configs.set('OneBot HTTP Token', 'onebot-token');
+  let forwards = 0;
+  globalThis.fetch = async (url, options) => {
+    const body = JSON.parse(options.body);
+    assert.equal(options.headers.Authorization, 'Bearer onebot-token');
+    assert.equal(body.messages[0].data.uin, '123456');
+    assert.equal(body.messages[1].data.content[0].type, 'text');
+    assert.ok(!options.body.includes('ID：'));
+    if (url.endsWith('send_group_forward_msg')) assert.equal(body.group_id, '654321');
+    else { assert.ok(url.endsWith('send_private_forward_msg')); assert.equal(body.user_id, '111111'); }
+    forwards++;
+    return { ok: true, json: async () => ({ status: 'ok', retcode: 0 }) };
+  };
+  const replyCount = replies.length;
+  await query('list');
+  await query('info example/first', { messageType: 'private' });
+  assert.equal(forwards, 2);
+  assert.equal(replies.length, replyCount, '转发成功不再发送普通消息');
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ status: 'failed', retcode: 100 }) });
+  await query('list');
+  assert.match(replies.pop(), /Alice 的成就/);
+  configs.set('OneBot HTTP API', '');
+  await query('list');
+  assert.match(replies.pop(), /Alice 的成就/);
+  configs.set('成就文字发送方式', '单独消息');
 
   variables.set(key(ctx, '$m普通成功'), 3);
   variables.set(key(ctx, '$m大成功'), 1);
